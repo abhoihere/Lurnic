@@ -108,6 +108,15 @@ HTML_TEMPLATE = """
     let selectedTier = 'free';
     let selectedFile = null;
 
+    // Enter key submits (Ctrl+Enter for new line)
+    questionInput.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter' && !e.ctrlKey && !e.shiftKey) {
+            e.preventDefault();
+            askButton.click();
+        }
+    });
+
+    // Mode selection
     modeCards.forEach(card => {
         card.addEventListener('click', () => {
             modeCards.forEach(c => c.classList.remove('selected'));
@@ -127,6 +136,7 @@ HTML_TEMPLATE = """
         });
     });
 
+    // Tier selection
     tierCards.forEach(card => {
         card.addEventListener('click', () => {
             tierCards.forEach(c => c.classList.remove('selected'));
@@ -135,9 +145,11 @@ HTML_TEMPLATE = """
         });
     });
 
+    // Set defaults
     document.querySelector('.mode-card[data-mode="direct"]').classList.add('selected');
     document.querySelector('.tier-card[data-tier="free"]').classList.add('selected');
 
+    // File upload handlers
     uploadArea.addEventListener('click', () => { if (selectedMode === 'pdf') fileInput.click(); });
     uploadArea.addEventListener('dragover', (e) => { e.preventDefault(); if (selectedMode === 'pdf') uploadArea.style.borderColor = '#3b82f6'; });
     uploadArea.addEventListener('dragleave', () => { uploadArea.style.borderColor = '#e5e7eb'; });
@@ -151,48 +163,88 @@ HTML_TEMPLATE = """
         }
     });
     fileInput.addEventListener('change', (e) => { if (e.target.files.length > 0) handleFile(e.target.files[0]); });
-    function handleFile(file) { selectedFile = file; fileNameSpan.textContent = file.name; fileNameSpan.style.display = 'block'; uploadArea.style.borderColor = '#3b82f6'; }
+    
+    function handleFile(file) { 
+        selectedFile = file; 
+        fileNameSpan.textContent = file.name; 
+        fileNameSpan.style.display = 'block'; 
+        uploadArea.style.borderColor = '#3b82f6'; 
+    }
 
+    // Markdown to HTML converter
     function convertMarkdownToHtml(text) {
+        if (!text) return '';
         let html = text;
         html = html.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         html = html.replace(/__(.*?)__/g, '<strong>$1</strong>');
         html = html.replace(/\*(.*?)\*/g, '<em>$1</em>');
         html = html.replace(/_(.*?)_/g, '<em>$1</em>');
         html = html.replace(/`(.*?)`/g, '<code>$1</code>');
-        html = html.replace(/### (.*?)\n/g, '<h3>$1</h3>');
-        html = html.replace(/## (.*?)\n/g, '<h2>$1</h2>');
-        html = html.replace(/# (.*?)\n/g, '<h1>$1</h1>');
+        html = html.replace(/### (.*?)(\n|$)/g, '<h3>$1</h3>');
+        html = html.replace(/## (.*?)(\n|$)/g, '<h2>$1</h2>');
+        html = html.replace(/# (.*?)(\n|$)/g, '<h1>$1</h1>');
         html = html.replace(/^[\*\-] (.*?)$/gm, '<li>$1</li>');
         html = html.replace(/(<li>.*<\/li>)/s, '<ul>$1</ul>');
         html = html.replace(/\n/g, '<br>');
         return html;
     }
 
+    // Ask button handler
     askButton.addEventListener('click', async () => {
+        console.log("Ask button clicked");
+        
         const question = questionInput.value.trim();
-        if (!question) { alert('Please enter a question'); return; }
-        if (selectedMode === 'pdf' && !selectedFile) { alert('Please upload a PDF file for textbook mode'); return; }
+        if (!question) { 
+            alert('Please enter a question'); 
+            return; 
+        }
+        
+        if (selectedMode === 'pdf' && !selectedFile) { 
+            alert('Please upload a PDF file for textbook mode'); 
+            return; 
+        }
+        
+        // Show loading, hide previous result
         loadingDiv.style.display = 'block';
         resultCard.style.display = 'none';
         askButton.disabled = true;
+        
         const formData = new FormData();
         formData.append('question', question);
         formData.append('mode', selectedMode);
         formData.append('tier', selectedTier);
-        if (selectedMode === 'pdf' && selectedFile) formData.append('pdf_file', selectedFile);
+        if (selectedMode === 'pdf' && selectedFile) {
+            formData.append('pdf_file', selectedFile);
+        }
+        
         try {
-            const response = await fetch('/ask', { method: 'POST', body: formData });
+            console.log("Sending request...");
+            const response = await fetch('/ask', { 
+                method: 'POST', 
+                body: formData 
+            });
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
+            console.log("Response received");
+            
             loadingDiv.style.display = 'none';
             resultCard.style.display = 'block';
             answerText.innerHTML = convertMarkdownToHtml(data.answer);
-            metaInfo.innerHTML = `${data.method_used} · ${data.processing_time}s · ${data.images_processed || 0} images`;
+            metaInfo.innerHTML = `${data.method_used || 'unknown'} · ${data.processing_time || 0}s · ${data.images_processed || 0} images`;
         } catch (error) {
+            console.error("Error:", error);
             loadingDiv.style.display = 'none';
             alert('Error: ' + error.message);
-        } finally { askButton.disabled = false; }
+        } finally { 
+            askButton.disabled = false; 
+        }
     });
+    
+    console.log("Page loaded, script ready");
 </script>
 </body>
 </html>
