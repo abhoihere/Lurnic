@@ -7,3 +7,4 @@ python-multipart
 pdfplumber
 PyMuPDF
 pillow
+PyPDF2
